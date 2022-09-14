@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
+
 
 class ArticleController extends Controller
 {
@@ -23,7 +26,7 @@ class ArticleController extends Controller
         // $optionsにトークンを指定
         $options = [
             'headers' => [
-                'Authorization' => 'Bearer ' . config('qiita.token'),
+                'Authorization' => 'Bearer ' . Crypt::decryptString(Auth::user()->token),
             ],
         ];
 
@@ -40,17 +43,17 @@ class ArticleController extends Controller
             $articles = null;
         }
 
-        // 自分の記事を取得
+
+        //自分の記事一覧を取得
         $method = 'GET';
         $per_page = 30;
 
         // QIITA_URLの値を取得してURLを定義
         $url = config('qiita.url') . '/api/v2/authenticated_user/items?per_page=' . $per_page;
-
         // $optionsにトークンを指定
         $options = [
             'headers' => [
-                'Authorization' => 'Bearer ' . config('qiita.token'),
+                'Authorization' => 'Bearer ' . Crypt::decryptString(Auth::user()->token),
             ],
         ];
 
@@ -66,8 +69,6 @@ class ArticleController extends Controller
         } catch (\Throwable $th) {
             $my_articles = null;
         }
-
-
         return view('articles.index')->with(compact('articles', 'my_articles'));
     }
 
@@ -111,7 +112,7 @@ class ArticleController extends Controller
         $options = [
             'headers' => [
                 'Content-Type' => 'application/json',
-                'Authorization' => 'Bearer ' . config('qiita.token'),
+                'Authorization' => 'Bearer ' . Crypt::decryptString(Auth::user()->token),
             ],
             'json' => $data,
         ];
@@ -126,7 +127,7 @@ class ArticleController extends Controller
             // GuzzleHttpで発生したエラーの場合はcatchする
             return back()->withErrors(['error' => $e->getResponse()->getReasonPhrase()]);
         }
-        return redirect()->route('articles.index')->with('flash_message', '記事の投稿に成功しました。' );
+        return redirect()->route('articles.index')->with('flash_message', '記事の投稿に成功しました。');
     }
 
 
@@ -149,7 +150,7 @@ class ArticleController extends Controller
         // $optionsにトークンを指定
         $options = [
             'headers' => [
-                'Authorization' => 'Bearer ' . config('qiita.token'),
+                'Authorization' => 'Bearer ' . Crypt::decryptString(Auth::user()->token),
             ],
         ];
 
@@ -171,8 +172,37 @@ class ArticleController extends Controller
             return back();
         }
 
-        return view('articles.show')->with(compact('article'));
+
+
+        $method = 'GET';
+
+        // QIITA_URLの値を取得してURLを定義
+        $url = config('qiita.url') . '/api/v2/authenticated_user';
+
+        // $optionsにトークンを指定
+        $options = [
+            'headers' => [
+                'Authorization' => 'Bearer ' . Crypt::decryptString(Auth::user()->token),
+            ],
+        ];
+
+        // Client(接続する為のクラス)を生成
+        $client = new Client();
+
+        try {
+            // データを取得し、JSON形式からPHPの変数に変換
+            $response = $client->request($method, $url, $options);
+            $body = $response->getBody();
+            $user = json_decode($body, false);
+        } catch (\Throwable $th) {
+            return back();
+        }
+
+        return view('articles.show')->with(compact('article', 'user'));
     }
+
+
+
 
     /**
      * Show the form for editing the specified resource.
@@ -190,7 +220,7 @@ class ArticleController extends Controller
         // $optionsにトークンを指定
         $options = [
             'headers' => [
-                'Authorization' => 'Bearer ' . config('qiita.token'),
+                'Authorization' => 'Bearer ' . Crypt::decryptString(Auth::user()->token),
             ],
         ];
 
@@ -213,7 +243,6 @@ class ArticleController extends Controller
         }
 
         return view('articles.edit')->with(compact('article'));
-
     }
 
     /**
@@ -228,7 +257,7 @@ class ArticleController extends Controller
         $method = 'PATCH';
 
         // QIITA_URLの値を取得してURLを定義
-        $url = config('qiita.url') . '/api/v2/items/'. $id;
+        $url = config('qiita.url') . '/api/v2/items/' . $id;
 
         // スペース区切りの文字列を配列に変換し、JSON形式に変換
         $tag_array = explode(' ', $request->tags);
@@ -246,7 +275,7 @@ class ArticleController extends Controller
 
         $options = [
             'headers' => [
-                'Authorization' => 'Bearer ' . config('qiita.token'),
+                'Authorization' => 'Bearer ' . Crypt::decryptString(Auth::user()->token),
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
             ],
@@ -262,7 +291,7 @@ class ArticleController extends Controller
         } catch (\GuzzleHttp\Exception\ClientException $e) {
             return back()->withErrors(['error' => $e->getResponse()->getReasonPhrase()]);
         }
-        return redirect()->route('articles.index')->with('flash_message', '記事の更新に成功しました。' );
+        return redirect()->route('articles.index')->with('flash_message', '記事の更新に成功しました。');
     }
 
     /**
@@ -273,6 +302,27 @@ class ArticleController extends Controller
      */
     public function destroy($id)
     {
-        //
+        $method = 'DELETE';
+
+        // QIITA_URLの値を取得してURLを定義
+        $url = config('qiita.url') . '/api/v2/items/' . $id;
+
+        // $optionsにトークンを指定
+        $options = [
+            'headers' => [
+                'Authorization' => 'Bearer ' . Crypt::decryptString(Auth::user()->token),
+            ],
+        ];
+
+        // Client(接続する為のクラス)を生成
+        $client = new Client();
+
+        try {
+            $response = $client->request($method, $url, $options);
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            return back()->withErrors(['error' => $e->getResponse()->getReasonPhrase()]);
+        }
+
+        return redirect()->route('articles.index')->with('flash_message', '記事を削除しました');;
     }
 }
