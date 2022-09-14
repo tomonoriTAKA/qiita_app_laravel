@@ -177,7 +177,7 @@ class ArticleController extends Controller
         $method = 'GET';
 
         // QIITA_URLの値を取得してURLを定義
-        $url = config('qiita.url') . '/api/v2/authenticated_user';
+        $url = config('qiita.url') . '/api/v2/authenticated_user/';
 
         // $optionsにトークンを指定
         $options = [
